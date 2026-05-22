@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+:root {
+  /* ── HEA Brand Palette ── */
+  --colour-primary:       #003580;   /* HEA deep navy */
+  --colour-primary-dark:  #002060;   /* darker navy for sidebar */
+  --colour-secondary:     #0056B3;   /* mid blue */
+  --colour-accent-blue:   #2E86C1;   /* bright blue */
+  --colour-accent-orange: #F37336;   /* vibrant orange accent */
+  --colour-accent-amber:  #F7CC3B;   /* amber / gold */
+  --colour-surface-blue:  #D6E4F0;   /* light blue tint */
+  --colour-off-white:     #F0F4F8;   /* page background */
+
+  /* ── Semantic tokens ── */
+  --background:           var(--colour-off-white);
+  --foreground:           #0D1B2A;
+
+  --card:                 #ffffff;
+  --card-foreground:      #0D1B2A;
+
+  --popover:              #ffffff;
+  --popover-foreground:   #0D1B2A;
+
+  --primary:              var(--colour-primary);
+  --primary-foreground:   #ffffff;
+
+  --secondary:            var(--colour-secondary);
+  --secondary-foreground: #ffffff;
+
+  --muted:                var(--colour-surface-blue);
+  --muted-foreground:     #5a6a7a;
+
+  --accent:               var(--colour-accent-orange);
+  --accent-foreground:    #ffffff;
+
+  --border:               #dde4ed;
+  --input:                #dde4ed;
+  --ring:                 var(--colour-primary);
+
+  --radius: 0.75rem;
+
+  /* ── Sidebar ── */
+  --sidebar-bg:           #0D2150;   /* rich navy, slightly lighter than primary-dark */
+  --sidebar-border:       rgba(255,255,255,0.07);
+  --sidebar-active-bg:    rgba(255,255,255,0.12);
+  --sidebar-hover-bg:     rgba(255,255,255,0.06);
+  --sidebar-text:         rgba(255,255,255,0.55);
+  --sidebar-text-active:  #ffffff;
+  --sidebar-accent:       var(--colour-accent-orange);
+}
+
+@theme inline {
+  --color-primary:        var(--primary);
+  --color-secondary:      var(--secondary);
+  --color-accent-blue:    var(--colour-accent-blue);
+  --color-accent-orange:  var(--colour-accent-orange);
+  --color-accent-amber:   var(--colour-accent-amber);
+  --color-surface-blue:   var(--colour-surface-blue);
+  --color-off-white:      var(--colour-off-white);
+  --color-sidebar:        var(--sidebar-bg);
+
+  --color-background:     var(--background);
+  --color-foreground:     var(--foreground);
+
+  --radius-xl:  calc(var(--radius) + 4px);
+  --radius-lg:  var(--radius);
+  --radius-md:  calc(var(--radius) - 2px);
+  --radius-sm:  calc(var(--radius) - 4px);
+
+  --shadow-card:    0 2px 8px rgba(0,53,128,0.08), 0 1px 3px rgba(0,53,128,0.04);
+  --shadow-premium: 0 10px 30px rgba(0,53,128,0.12), 0 4px 8px rgba(0,53,128,0.06);
+  --shadow-orange:  0 8px 24px rgba(243,115,54,0.25);
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    border-radius: 1rem;
+  }
+
+  .card-hover {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow-premium);
+    transform: translateY(-2px);
+  }
+
+  /* ── Glass (kept for backward compat) ── */
+  .glass {
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+  .glass-card {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+  }
+  .glass-panel {
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.5);
+    box-shadow: 0 4px 24px rgba(0,53,128,0.06);
+  }
+
+  /* ── Gradients ── */
+  .gradient-blue {
+    background: linear-gradient(135deg, var(--colour-primary) 0%, var(--colour-secondary) 100%);
+  }
+  .gradient-orange {
+    background: linear-gradient(135deg, var(--colour-accent-orange) 0%, var(--colour-accent-amber) 100%);
+  }
+  .gradient-hero {
+    background: linear-gradient(135deg, var(--sidebar-bg) 0%, var(--colour-primary) 60%, var(--colour-secondary) 100%);
+  }
+
+  /* ── Stat accent bar ── */
+  .stat-accent-blue   { border-left: 4px solid var(--colour-primary); }
+  .stat-accent-orange { border-left: 4px solid var(--colour-accent-orange); }
+  .stat-accent-amber  { border-left: 4px solid var(--colour-accent-amber); }
+  .stat-accent-teal   { border-left: 4px solid #17a2b8; }
+
+  /* ── Sidebar scrollbar ── */
+  .sidebar-scroll::-webkit-scrollbar       { width: 4px; }
+  .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.12);
+    border-radius: 20px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255,255,255,0.25);
+  }
+
+  /* ── Pulse border ── */
+  .animate-pulse-border {
+    animation: pulseBorder 2s cubic-bezier(0.4,0,0.6,1) infinite;
+  }
+
+  /* ── Orange glow button ── */
+  .btn-orange {
+    background: var(--colour-accent-orange);
+    color: #fff;
+    box-shadow: var(--shadow-orange);
+    transition: filter 0.2s ease, transform 0.15s ease;
+  }
+  .btn-orange:hover  { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn-orange:active { transform: scale(0.97); }
+
+  /* ── Primary button ── */
+  .btn-primary {
+    background: var(--colour-primary);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(0,53,128,0.25);
+    transition: filter 0.2s ease, transform 0.15s ease;
+  }
+  .btn-primary:hover  { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-primary:active { transform: scale(0.97); }
+
+  /* ── Badge ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+@keyframes pulseBorder {
+  0%, 100% { border-color: rgba(46,134,193,0.2); }
+  50%       { border-color: rgba(46,134,193,0.8); }
+}

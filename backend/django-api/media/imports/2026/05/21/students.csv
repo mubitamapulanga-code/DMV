@@ -1,0 +1,5 @@
+student_id,first_name,last_name,gender,year_of_entry,institution_name,status,email
+STU-2024-001,James,Mwale,M,2024,Chalimbana University,ENROLLED,j.mwale@chali.ac.zm
+STU-2024-002,Natasha,Chileshe,F,2024,Chalimbana University,ENROLLED,n.chileshe@chali.ac.zm
+STU-2023-001,Samuel,Banda,M,2023,Rusangu University,ENROLLED,s.banda@rusangu.ac.zm
+STU-2022-001,Patricia,Kabwe,F,2022,Evelyn Hone College,GRADUATED,p.kabwe@ehc.ac.zm
