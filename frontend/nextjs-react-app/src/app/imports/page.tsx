@@ -110,6 +110,8 @@ export default function ImportsPage() {
                           <span>{item.status}</span>
                           <span>•</span>
                           <span>{item.processed_records}/{item.total_records} records</span>
+                          {item.data_year && <><span>•</span><span>{item.data_year}</span></>}
+                          {item.district && <><span>•</span><span>{item.district}</span></>}
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {new Date(item.created_at).toLocaleString()}

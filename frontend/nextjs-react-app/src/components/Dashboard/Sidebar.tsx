@@ -60,10 +60,11 @@ const menuGroups: { label: string; items: MenuItem[] }[] = [
   {
     label: 'Data Management',
     items: [
-      { icon: Building2,     label: 'Institutions', href: '/institutions' },
-      { icon: GraduationCap, label: 'Students',     href: '/students' },
-      { icon: BookOpen,      label: 'Programmes',   href: '/programmes' },
-      { icon: Database,      label: 'Data Import',  href: '/imports' },
+      { icon: Building2,     label: 'Institutions',   href: '/institutions' },
+      { icon: GraduationCap, label: 'Students',        href: '/students' },
+      { icon: Users,         label: 'Academic Staff',  href: '/staff' },
+      { icon: BookOpen,      label: 'Programmes',      href: '/programmes' },
+      { icon: Database,      label: 'Data Import',     href: '/imports' },
     ],
   },
   {

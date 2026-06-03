@@ -17,12 +17,16 @@ class ImportHistory(models.Model):
         ('PROGRAMMES', 'Programmes'),
         ('ENROLLMENTS', 'Enrollments'),
         ('INDICATORS', 'Indicator Data'),
+        ('STAFF', 'Academic Staff'),
     ]
 
     file = models.FileField(upload_to='imports/%Y/%m/%d/')
     filename = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     import_type = models.CharField(max_length=20, choices=IMPORT_TYPE_CHOICES, default='AUTO')
+    # Metadata supplied by the user at upload time
+    data_year = models.IntegerField(null=True, blank=True, help_text='Academic year the data belongs to')
+    district = models.CharField(max_length=100, null=True, blank=True, help_text='District the data belongs to')
     total_records = models.IntegerField(default=0)
     processed_records = models.IntegerField(default=0)
     failed_records = models.IntegerField(default=0)

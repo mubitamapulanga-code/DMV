@@ -38,6 +38,15 @@ interface ReportConfig {
   year:          number;
   yearsBack:     number;
   institution:   string;
+  // ── New dimension filters ──────────────────────────────────────────────
+  province:         string;
+  district:         string;
+  institutionType:  string;
+  gender:           string;
+  studentStatus:    string;
+  programmeLevel:   string;
+  ageMin:           string;
+  ageMax:           string;
   // per-section chart type overrides
   trendChart:    ChartType;
   distChart:     ChartType;
@@ -52,13 +61,23 @@ interface ReportConfig {
   showLevel:     boolean;
   showIndicators:boolean;
   showCohort:    boolean;
+  showByDistrict:boolean;
+  showByAge:     boolean;
 }
 
 const DEFAULT_CONFIG: ReportConfig = {
   reportType:    'ENROLLMENT',
-  year:          2024,
+  year:          new Date().getFullYear(),
   yearsBack:     5,
   institution:   '',
+  province:      '',
+  district:      '',
+  institutionType: '',
+  gender:        '',
+  studentStatus: '',
+  programmeLevel:'',
+  ageMin:        '',
+  ageMax:        '',
   trendChart:    'area',
   distChart:     'bar',
   breakdownChart:'pie',
@@ -71,6 +90,8 @@ const DEFAULT_CONFIG: ReportConfig = {
   showLevel:     true,
   showIndicators:true,
   showCohort:    false,
+  showByDistrict:true,
+  showByAge:     true,
 };
 
 const REPORT_TYPES: { value: ReportType; label: string; icon: React.ElementType; color: string }[] = [
@@ -208,6 +229,16 @@ function DynamicChart({ type, data, dataKey, nameKey = 'name', height = 280, sec
 }
 
 // ── Settings Panel ────────────────────────────────────────────────────────────
+const PROVINCES = ['LUSAKA','COPPERBELT','CENTRAL','SOUTHERN','EASTERN','WESTERN','NORTHERN','NORTH_WESTERN','LUAPULA','MUCHINGA'];
+const PROG_LEVELS = [
+  { value: 'CERTIFICATE', label: 'Certificate' },
+  { value: 'DIPLOMA', label: 'Diploma' },
+  { value: 'BACHELOR', label: "Bachelor's" },
+  { value: 'POSTGRAD_DIPLOMA', label: 'PG-Diploma' },
+  { value: 'MASTERS', label: "Master's" },
+  { value: 'PHD', label: 'Doctorate' },
+];
+
 function SettingsPanel({ config, setConfig, institutions, onReset }:
   { config: ReportConfig; setConfig: (c: ReportConfig) => void;
     institutions: any[]; onReset: () => void }) {
@@ -215,20 +246,25 @@ function SettingsPanel({ config, setConfig, institutions, onReset }:
   const toggle = (key: keyof ReportConfig) =>
     setConfig({ ...config, [key]: !config[key] });
 
+  const sel = (key: keyof ReportConfig) => (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) =>
+    setConfig({ ...config, [key]: e.target.value });
+
   const TOGGLES: { key: keyof ReportConfig; label: string }[] = [
-    { key: 'showKPIs',       label: 'KPI Summary Cards' },
-    { key: 'showTrend',      label: 'Enrollment Trend' },
-    { key: 'showByInst',     label: 'By Institution' },
-    { key: 'showByProvince', label: 'By Province' },
-    { key: 'showByType',     label: 'By Institution Type' },
-    { key: 'showGender',     label: 'Gender Breakdown' },
-    { key: 'showLevel',      label: 'Programme Levels' },
-    { key: 'showIndicators', label: 'Indicators Table' },
-    { key: 'showCohort',     label: 'Cohort Trend' },
+    { key: 'showKPIs',        label: 'KPI Summary Cards' },
+    { key: 'showTrend',       label: 'Enrollment Trend' },
+    { key: 'showByInst',      label: 'By Institution' },
+    { key: 'showByProvince',  label: 'By Province' },
+    { key: 'showByType',      label: 'By Institution Type' },
+    { key: 'showGender',      label: 'Gender Breakdown' },
+    { key: 'showLevel',       label: 'Programme Levels' },
+    { key: 'showByDistrict',  label: 'By District' },
+    { key: 'showByAge',       label: 'By Age Group' },
+    { key: 'showIndicators',  label: 'Indicators Table' },
+    { key: 'showCohort',      label: 'Cohort Trend' },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Report type */}
       <div>
         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Report Type</label>
@@ -249,19 +285,19 @@ function SettingsPanel({ config, setConfig, institutions, onReset }:
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Core filters */}
       <div>
-        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Filters</label>
+        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Core Filters</label>
         <div className="space-y-2">
           <div>
             <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Year</label>
             <select value={config.year} onChange={e => setConfig({ ...config, year: +e.target.value })}
               className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-              {[2020,2021,2022,2023,2024,2025].map(y => <option key={y} value={y}>{y}</option>)}
+              {Array.from({ length: new Date().getFullYear() - 2015 + 1 }, (_, i) => 2015 + i).reverse().map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Years of Trend</label>
+            <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Trend Window</label>
             <select value={config.yearsBack} onChange={e => setConfig({ ...config, yearsBack: +e.target.value })}
               className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
               {[3,4,5,6,7,10].map(n => <option key={n} value={n}>{n} years</option>)}
@@ -269,7 +305,7 @@ function SettingsPanel({ config, setConfig, institutions, onReset }:
           </div>
           <div>
             <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Institution</label>
-            <select value={config.institution} onChange={e => setConfig({ ...config, institution: e.target.value })}
+            <select value={config.institution} onChange={sel('institution')}
               className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
               <option value="">All Institutions</option>
               {institutions.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
@@ -278,14 +314,86 @@ function SettingsPanel({ config, setConfig, institutions, onReset }:
         </div>
       </div>
 
+      {/* Dimension filters */}
+      <div>
+        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Dimensions</label>
+        <div className="space-y-2">
+          <div>
+            <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Province</label>
+            <select value={config.province} onChange={sel('province')}
+              className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="">All Provinces</option>
+              {PROVINCES.map(p => <option key={p} value={p}>{p.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-bold mb-1 block">District</label>
+            <input value={config.district} onChange={sel('district')} placeholder="e.g. Kafue"
+              className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Institution Type</label>
+            <select value={config.institutionType} onChange={sel('institutionType')}
+              className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="">All Types</option>
+              <option value="PUBLIC">Public University</option>
+              <option value="PRIVATE">Private University</option>
+              <option value="COLLEGE">College</option>
+              <option value="TECHNICAL">Technical/Vocational</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Gender</label>
+            <select value={config.gender} onChange={sel('gender')}
+              className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="">All Genders</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Student Status</label>
+            <select value={config.studentStatus} onChange={sel('studentStatus')}
+              className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="">All Statuses</option>
+              <option value="ENROLLED">Enrolled</option>
+              <option value="GRADUATED">Graduated</option>
+              <option value="DEFERRED">Deferred</option>
+              <option value="WITHDRAWN">Withdrawn</option>
+              <option value="SUSPENDED">Suspended</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Programme Level</label>
+            <select value={config.programmeLevel} onChange={sel('programmeLevel')}
+              className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="">All Levels</option>
+              {PROG_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Age Min</label>
+              <input type="number" min={0} max={100} value={config.ageMin} onChange={sel('ageMin')} placeholder="e.g. 18"
+                className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground font-bold mb-1 block">Age Max</label>
+              <input type="number" min={0} max={100} value={config.ageMax} onChange={sel('ageMax')} placeholder="e.g. 35"
+                className="w-full px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Chart type defaults */}
       <div>
-        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Default Chart Types</label>
+        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Chart Types</label>
         <div className="space-y-2">
           {([
-            { key: 'trendChart',    label: 'Trend charts',     allowed: ['area','line','bar'] },
-            { key: 'distChart',     label: 'Distribution',     allowed: ['bar','pie','radar'] },
-            { key: 'breakdownChart',label: 'Breakdowns',       allowed: ['pie','bar','radar'] },
+            { key: 'trendChart',    label: 'Trend',        allowed: ['area','line','bar'] },
+            { key: 'distChart',     label: 'Distribution', allowed: ['bar','pie','radar'] },
+            { key: 'breakdownChart',label: 'Breakdowns',   allowed: ['pie','bar','radar'] },
           ] as { key: keyof ReportConfig; label: string; allowed: ChartType[] }[]).map(({ key, label, allowed }) => (
             <div key={key}>
               <label className="text-[10px] text-muted-foreground font-bold mb-1 block">{label}</label>
@@ -358,8 +466,16 @@ export default function ReportsPage() {
         report_type: cfg.reportType,
         year:        String(cfg.year),
         years_back:  String(cfg.yearsBack),
-        ...(cfg.institution ? { institution: cfg.institution } : {}),
       });
+      if (cfg.institution)     params.set('institution',       cfg.institution);
+      if (cfg.province)        params.set('province',          cfg.province);
+      if (cfg.district)        params.set('district',          cfg.district);
+      if (cfg.institutionType) params.set('institution_type',  cfg.institutionType);
+      if (cfg.gender)          params.set('gender',            cfg.gender);
+      if (cfg.studentStatus)   params.set('student_status',    cfg.studentStatus);
+      if (cfg.programmeLevel)  params.set('programme_level',   cfg.programmeLevel);
+      if (cfg.ageMin)          params.set('age_min',           cfg.ageMin);
+      if (cfg.ageMax)          params.set('age_max',           cfg.ageMax);
       const result = await api.get<any>(`/reports/data/?${params}`);
       setData(result);
     } catch (e) {
@@ -397,6 +513,10 @@ export default function ReportsPage() {
           <Link href="/reports/unmatched-programmes"
             className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold hover:bg-amber-100 transition-colors">
             <AlertTriangle className="w-3.5 h-3.5" /> Unmatched
+          </Link>
+          <Link href="/reports/gender-enrollment"
+            className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors">
+            <Users className="w-3.5 h-3.5" /> Gender Report
           </Link>
           <button onClick={() => fetchData(config)}
             className="flex items-center gap-2 px-3 py-2 bg-white border border-border rounded-xl text-xs font-bold text-primary hover:bg-surface-blue transition-colors">
@@ -454,11 +574,41 @@ export default function ReportsPage() {
             <motion.div key={`${config.reportType}-${config.year}`}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
 
+              {/* Active filter chips */}
+              {data.active_filters && Object.keys(data.active_filters).length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Active filters:</span>
+                  {Object.entries(data.active_filters).map(([k, v]) => (
+                    <span key={k} className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold">
+                      <Filter className="w-3 h-3" />
+                      {k.replace(/_/g, ' ')}: {String(v)}
+                      <button onClick={() => {
+                        const reset: Partial<ReportConfig> = {
+                          province: k === 'province' ? '' : config.province,
+                          district: k === 'district' ? '' : config.district,
+                          institutionType: k === 'institution_type' ? '' : config.institutionType,
+                          gender: k === 'gender' ? '' : config.gender,
+                          studentStatus: k === 'student_status' ? '' : config.studentStatus,
+                          programmeLevel: k === 'programme_level' ? '' : config.programmeLevel,
+                          ageMin: k === 'age_min' ? '' : config.ageMin,
+                          ageMax: k === 'age_max' ? '' : config.ageMax,
+                        };
+                        setConfig({ ...config, ...reset });
+                      }} className="ml-0.5 hover:text-red-500 transition-colors">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <button onClick={() => setConfig({ ...config, province:'', district:'', institutionType:'', gender:'', studentStatus:'', programmeLevel:'', ageMin:'', ageMax:'' })}
+                    className="text-xs font-bold text-red-500 hover:underline">Clear all</button>
+                </div>
+              )}
+
               {/* KPIs */}
               {config.showKPIs && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <KpiCard label="Total Students"    value={data.kpis.total_students}    icon={Users}         sub={`${config.year} academic year`} />
-                  <KpiCard label="Avg Graduation"    value={`${data.kpis.avg_graduation_rate}%`} icon={GraduationCap} sub="national average" />
+                  <KpiCard label="Graduates"         value={data.kpis.total_graduates}   icon={GraduationCap} sub="total graduated" />
                   <KpiCard label="Institutions"      value={data.kpis.total_institutions} icon={Building2}     sub="active HEIs" />
                   <KpiCard label="Active Programmes" value={data.kpis.total_programmes}   icon={BookOpen}      sub="accredited" />
                 </div>
@@ -471,7 +621,7 @@ export default function ReportsPage() {
                     chartKey="trendChart" config={config} setConfig={setConfig}
                     allowedCharts={['area','line','bar']} />
                   <DynamicChart type={config.trendChart} data={data.enrollment_trend}
-                    dataKey="enrolled" nameKey="year" secondKey="graduation_rate" height={280} />
+                    dataKey="enrolled" nameKey="year" secondKey="graduates" height={280} />
                 </div>
               )}
 
@@ -537,6 +687,28 @@ export default function ReportsPage() {
                       allowedCharts={['area','line','bar']} />
                     <DynamicChart type={config.trendChart} data={data.cohort_trend}
                       dataKey="students" nameKey="year" height={240} />
+                  </div>
+                )}
+              </div>
+
+              {/* District + Age Group */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {config.showByDistrict && data.by_district?.length > 0 && (
+                  <div className="p-6 glass-card rounded-3xl">
+                    <SectionHeader title="By District" sub="Student distribution by institution district"
+                      chartKey="distChart" config={config} setConfig={setConfig}
+                      allowedCharts={['bar','pie','radar']} />
+                    <DynamicChart type={config.distChart === 'pie' ? 'bar' : config.distChart}
+                      data={data.by_district.slice(0,15)} dataKey="enrolled" nameKey="name" height={260} />
+                  </div>
+                )}
+                {config.showByAge && data.by_age_group?.some((g: any) => g.count > 0) && (
+                  <div className="p-6 glass-card rounded-3xl">
+                    <SectionHeader title="By Age Group" sub="Student distribution by age"
+                      chartKey="breakdownChart" config={config} setConfig={setConfig}
+                      allowedCharts={['bar','pie','radar']} />
+                    <DynamicChart type={config.breakdownChart} data={data.by_age_group}
+                      dataKey="count" nameKey="name" height={240} />
                   </div>
                 )}
               </div>

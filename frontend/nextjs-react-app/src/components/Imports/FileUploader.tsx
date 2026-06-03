@@ -23,6 +23,21 @@ function getToken() {
   }
 }
 
+// ── Zambia Districts ─────────────────────────────────────────────────────────
+const ZAMBIA_DISTRICTS: Record<string, string[]> = {
+  Lusaka:       ['Lusaka', 'Kafue', 'Chongwe', 'Luangwa', 'Chirundu'],
+  Copperbelt:   ['Ndola', 'Kitwe', 'Chingola', 'Mufulira', 'Luanshya', 'Kalulushi', 'Chililabombwe', 'Masaiti', 'Mpongwe', 'Lufwanyama'],
+  Central:      ['Kabwe', 'Kapiri Mposhi', 'Mkushi', 'Chibombo', 'Serenje', 'Mumbwa', 'Itezhi-Tezhi', 'Shibuyunji', 'Ngabwe', 'Chitambo'],
+  Southern:     ['Livingstone', 'Choma', 'Mazabuka', 'Monze', 'Kalomo', 'Siavonga', 'Gwembe', 'Namwala', 'Sinazongwe', 'Pemba'],
+  Eastern:      ['Chipata', 'Petauke', 'Lundazi', 'Katete', 'Chadiza', 'Nyimba', 'Mambwe', 'Sinda', 'Vubwi'],
+  Western:      ['Mongu', 'Senanga', 'Kaoma', 'Lukulu', 'Sesheke', 'Shangombo', 'Sioma', 'Kalabo', 'Limulunga', 'Mulobezi'],
+  Northern:     ['Kasama', 'Mpika', 'Mporokoso', 'Luwingu', 'Chilubi', 'Kaputa', 'Mbala', 'Chinsali', 'Nakonde', 'Lavushimanda'],
+  'North Western': ['Solwezi', 'Mwinilunga', 'Kasempa', 'Kabompo', 'Chavuma', 'Mufumbwe', 'Mushindamo', 'Ikelenge', 'Zambezi'],
+  Luapula:      ['Mansa', 'Nchelenge', 'Samfya', 'Kawambwa', 'Mwense', 'Chipili', 'Milenge', 'Lunga', 'Chembe'],
+  Muchinga:     ['Chinsali', 'Mpika', 'Isoka', 'Nakonde', 'Shiwang\'andu', 'Lavushimanda', 'Mafinga'],
+};
+const ALL_DISTRICTS = Object.values(ZAMBIA_DISTRICTS).flat().sort();
+
 /* ── Target fields per import type ─────────────────────────────────────── */
 const FIELD_MAPS: Record<string, { key: string; label: string; required?: boolean; isInstitution?: boolean }[]> = {
   STUDENTS: [
@@ -72,6 +87,23 @@ const FIELD_MAPS: Record<string, { key: string; label: string; required?: boolea
     { key: 'type',             label: 'Institution Type' },
     { key: 'province',         label: 'Province' },
   ],
+  STAFF: [
+    { key: 'staff_id',              label: 'Staff ID' },
+    { key: 'first_name',            label: 'First Name' },
+    { key: 'last_name',             label: 'Last Name' },
+    { key: 'gender',                label: 'Gender' },
+    { key: 'institution',           label: 'Institution',      isInstitution: true },
+    { key: 'department',            label: 'Department' },
+    { key: 'rank',                  label: 'Rank' },
+    { key: 'employment_type',       label: 'Employment Type' },
+    { key: 'status',                label: 'Status' },
+    { key: 'year_appointed',        label: 'Year Appointed' },
+    { key: 'highest_qualification', label: 'Highest Qualification' },
+    { key: 'specialisation',        label: 'Specialisation' },
+    { key: 'academic_field',        label: 'Academic Field' },
+    { key: 'email',                 label: 'Email' },
+    { key: 'phone',                 label: 'Phone' },
+  ],
 };
 
 /** A custom field row: maps an Excel column → a user-defined target field name */
@@ -93,6 +125,8 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
   const [preview, setPreview]       = useState<{ columns: string[]; rows: any[] } | null>(null);
   const [previewError, setPreviewError] = useState('');
   const [errorMsg, setErrorMsg]     = useState('');
+  const [dataYear, setDataYear]     = useState<number>(new Date().getFullYear());
+  const [district, setDistrict]     = useState('');
 
   // Standard column mapping: { targetFieldKey → excelColumnName }
   const [mapping, setMapping]       = useState<Record<string, string>>({});
@@ -182,6 +216,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
     setInstitutionMapping({});
     setCustomFields([]);
     setFlaggedCount(0);
+    // intentionally keep dataYear and district — user likely wants the same metadata
   };
 
   /* ── Drag-and-drop ────────────────────────────────────────────────────── */
@@ -235,6 +270,8 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
     fd.append('import_type', importType);
     fd.append('mapping', JSON.stringify(fullMapping));
     if (defaultInstitution) fd.append('default_institution', defaultInstitution);
+    fd.append('data_year', String(dataYear));
+    if (district) fd.append('district', district);
 
     try {
       const token = getToken();
@@ -349,7 +386,38 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
                       <option value="PROGRAMMES">Programmes</option>
                       <option value="ENROLLMENTS">Enrollments</option>
                       <option value="INDICATORS">Indicator Data</option>
+                      <option value="STAFF">Academic Staff</option>
                     </select>
+                  </div>
+
+                  {/* Data metadata */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                    {/* Year */}
+                    <div>
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">
+                        Data Year <span className="text-red-400">*</span>
+                      </label>
+                      <select value={dataYear} onChange={(e) => setDataYear(Number(e.target.value))}
+                        className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-border rounded-2xl text-sm font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+                        {Array.from({ length: new Date().getFullYear() - 2015 + 1 }, (_, i) => 2015 + i).reverse().map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-muted-foreground mt-1 font-medium">Academic year this data belongs to</p>
+                    </div>
+
+                    {/* District */}
+                    <div>
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">
+                        District (Optional)
+                      </label>
+                      <select value={district} onChange={(e) => setDistrict(e.target.value)}
+                        className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-border rounded-2xl text-sm font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+                        <option value="">— All Districts —</option>
+                        {ALL_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                      <p className="text-[10px] text-muted-foreground mt-1 font-medium">Leave blank for national-level data</p>
+                    </div>
                   </div>
 
                   {/* Preview table */}

@@ -1,3 +1,4 @@
+import datetime
 from rest_framework import views, status, permissions
 from rest_framework.response import Response
 from institutions.models import Institution
@@ -10,7 +11,7 @@ class DashboardDataView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        current_year = int(request.query_params.get('year', 2024))
+        current_year = int(request.query_params.get('year', datetime.date.today().year))
 
         total_heis  = Institution.objects.count()
         active_heis = Institution.objects.filter(is_active=True).count()
@@ -30,18 +31,17 @@ class DashboardDataView(views.APIView):
         if total_students == 0:
             total_students = Student.objects.count()
 
-        # ── Graduation rate: IndicatorValue → Student ratio fallback ──────
-        graduation_rate = 0.0
-        if graduation_indicator:
+        # ── Graduation count: actual graduated students ───────────────────
+        graduation_count = Student.objects.filter(status='GRADUATED').count()
+        # Also try IndicatorValue if a TOTAL_GRADUATES indicator exists
+        grad_count_ind = Indicator.objects.filter(code='TOTAL_GRADUATES').first()
+        if grad_count_ind:
             agg = IndicatorValue.objects.filter(
-                indicator=graduation_indicator, year=current_year
-            ).aggregate(Avg('value'))
-            graduation_rate = round(agg['value__avg'] or 0, 1)
-        if graduation_rate == 0.0:
-            total = Student.objects.count()
-            if total > 0:
-                grads = Student.objects.filter(status='GRADUATED').count()
-                graduation_rate = round((grads / total) * 100, 1)
+                indicator=grad_count_ind, year=current_year
+            ).aggregate(Sum('value'))
+            ind_val = int(agg['value__sum'] or 0)
+            if ind_val > 0:
+                graduation_count = ind_val
 
         # ── Chart: 6-year enrollment trend ────────────────────────────────
         chart_data = []
@@ -90,10 +90,10 @@ class DashboardDataView(views.APIView):
 
         return Response({
             'stats': {
-                'total_students': total_students,
-                'graduation_rate': f"{graduation_rate}%",
-                'registered_heis': total_heis,
-                'active_heis': active_heis,
+                'total_students':   total_students,
+                'graduated_count':  graduation_count,
+                'registered_heis':  total_heis,
+                'active_heis':      active_heis,
                 'compliance_score': 94.5,
             },
             'chart_data': chart_data,
@@ -109,7 +109,7 @@ class ExecutiveDashboardView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        year = int(request.query_params.get('year', 2024))
+        year = int(request.query_params.get('year', datetime.date.today().year))
 
         enrollment_ind = Indicator.objects.filter(code='TOTAL_STUDENTS').first()
         graduation_ind = Indicator.objects.filter(code='GRADUATION_RATE').first()
@@ -169,7 +169,7 @@ class AnalyticsOverviewView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        year = int(request.query_params.get('year', 2024))
+        year = int(request.query_params.get('year', datetime.date.today().year))
         years = list(range(year - 4, year + 1))
 
         enrollment_ind = Indicator.objects.filter(code='TOTAL_STUDENTS').first()
@@ -226,7 +226,6 @@ class EnrollmentBreakdownView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        import datetime
         current_year = datetime.date.today().year
 
         institution_id = request.query_params.get('institution')

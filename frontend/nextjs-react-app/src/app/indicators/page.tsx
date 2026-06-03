@@ -32,12 +32,34 @@ export default function IndicatorEnginePage() {
   const [search, setSearch] = React.useState('');
   const [categoryFilter, setCategoryFilter] = React.useState('');
   const [showModal, setShowModal] = React.useState(false);
+  const [editTarget, setEditTarget] = React.useState<any | null>(null);  // null = create, obj = edit
   const [saving, setSaving] = React.useState(false);
   const [isClearing, setIsClearing] = React.useState(false);
   const [form, setForm] = React.useState({
     name: '', code: '', description: '', category: 'HEA_KPI',
-    formula: '', unit: 'Percentage', target_value: '',
+    formula: '', unit: 'Percentage', target_value: '', is_active: true,
   });
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setForm({ name: '', code: '', description: '', category: 'HEA_KPI', formula: '', unit: 'Percentage', target_value: '', is_active: true });
+    setShowModal(true);
+  };
+
+  const openEdit = (ind: any) => {
+    setEditTarget(ind);
+    setForm({
+      name: ind.name,
+      code: ind.code,
+      description: ind.description || '',
+      category: ind.category,
+      formula: ind.formula || '',
+      unit: ind.unit || 'Percentage',
+      target_value: ind.target_value != null ? String(ind.target_value) : '',
+      is_active: ind.is_active,
+    });
+    setShowModal(true);
+  };
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
@@ -67,17 +89,33 @@ export default function IndicatorEnginePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.post('/indicators/', {
+      const payload = {
         ...form,
         target_value: form.target_value ? parseFloat(form.target_value) : null,
-      });
+        is_active: form.is_active,
+      };
+      if (editTarget) {
+        await api.patch(`/indicators/${editTarget.id}/`, payload);
+      } else {
+        await api.post('/indicators/', payload);
+      }
       setShowModal(false);
-      setForm({ name: '', code: '', description: '', category: 'HEA_KPI', formula: '', unit: 'Percentage', target_value: '' });
+      setForm({ name: '', code: '', description: '', category: 'HEA_KPI', formula: '', unit: 'Percentage', target_value: '', is_active: true });
       loadData();
     } catch (e: any) {
-      alert(e?.response?.data?.detail || 'Failed to create indicator');
+      alert(e?.response?.data?.detail || JSON.stringify(e?.response?.data) || 'Failed to save indicator');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (ind: any) => {
+    if (!window.confirm(`Delete indicator "${ind.name}" (${ind.code})? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/indicators/${ind.id}/`);
+      loadData();
+    } catch (e: any) {
+      alert('Failed to delete indicator');
     }
   };
 
@@ -113,7 +151,7 @@ export default function IndicatorEnginePage() {
               Clear All Data
             </button>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openCreate}
               className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
             >
               <Plus className="w-5 h-5" />

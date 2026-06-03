@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Programme, Student, Enrollment
+from .models import Programme, Student, Enrollment, AcademicStaff
 
 
 @admin.register(Programme)
@@ -26,4 +26,16 @@ class EnrollmentAdmin(admin.ModelAdmin):
     list_filter = ('academic_year', 'institution')
     search_fields = ('institution__name', 'programme__name')
     ordering = ('-academic_year', 'institution')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(AcademicStaff)
+class AcademicStaffAdmin(admin.ModelAdmin):
+    list_display = ('staff_id', 'first_name', 'last_name', 'gender', 'institution',
+                    'department', 'rank', 'employment_type', 'status', 'year_appointed')
+    list_filter  = ('status', 'gender', 'rank', 'employment_type',
+                    'highest_qualification', 'institution')
+    search_fields = ('staff_id', 'first_name', 'last_name', 'email',
+                     'department', 'specialisation', 'institution__name')
+    ordering = ('institution', 'last_name')
     readonly_fields = ('created_at', 'updated_at')

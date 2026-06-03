@@ -105,6 +105,8 @@ class FileUploadView(views.APIView):
     def post(self, request, format=None):
         file_obj = request.data.get('file')
         import_type = request.data.get('import_type', 'AUTO')
+        data_year   = request.data.get('data_year')      # user-selected year
+        district    = request.data.get('district', '')   # user-selected district
 
         if not file_obj:
             return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
@@ -125,6 +127,8 @@ class FileUploadView(views.APIView):
             filename=file_obj.name,
             status='PENDING',
             import_type=import_type,
+            data_year=int(data_year) if data_year else None,
+            district=district or None,
             created_by=request.user,
         )
 
@@ -155,6 +159,20 @@ class FileUploadView(views.APIView):
             if default_institution:
                 df['institution_name'] = default_institution
 
+            # ── Inject data_year as default year column ────────────────────
+            # Only sets it when the file doesn't already have a year column,
+            # so the file's own year column always takes precedence.
+            df_cols_at_inject = {c.lower().replace(' ', '_'): c for c in df.columns}
+            has_year_col = any(k in df_cols_at_inject for k in ('year', 'academic_year', 'year_of_entry'))
+            if data_year and not has_year_col:
+                df['year'] = int(data_year)
+
+            # ── Inject district ────────────────────────────────────────────
+            if district:
+                df_cols_at_inject2 = {c.lower().replace(' ', '_'): c for c in df.columns}
+                if 'district' not in df_cols_at_inject2:
+                    df['district'] = district
+
             import_record.total_records = len(df)
 
             # Build lowercase-underscore → original-name lookup
@@ -176,6 +194,7 @@ class FileUploadView(views.APIView):
             # 'id' alone is too generic — require 'student_id' for student routing.
             has_reg = 'registration_number' in df_cols or 'reg_number' in df_cols
             has_student_id = 'student_id' in df_cols
+            has_staff_id   = 'staff_id' in df_cols
             has_programme = (
                 'programme_name' in df_cols
                 or 'program_name' in df_cols
@@ -186,14 +205,16 @@ class FileUploadView(views.APIView):
 
             if import_type == 'INSTITUTIONS' or (import_type == 'AUTO' and has_reg):
                 success_count = self._import_institutions(df, df_cols)
+            elif import_type == 'STAFF' or (import_type == 'AUTO' and has_staff_id):
+                success_count = self._import_staff(df, df_cols, import_record=import_record)
             elif import_type == 'STUDENTS' or (import_type == 'AUTO' and has_student_id):
                 success_count = self._import_students(df, df_cols, import_record=import_record)
             elif import_type == 'PROGRAMMES' or (import_type == 'AUTO' and has_programme):
                 success_count = self._import_programmes(df, df_cols)
             elif import_type == 'ENROLLMENTS' or (import_type == 'AUTO' and has_enrollment):
-                success_count = self._import_enrollments(df, df_cols)
+                success_count = self._import_enrollments(df, df_cols, import_record=import_record)
             else:
-                success_count = self._import_indicator_data(df, df_cols, inst_col)
+                success_count = self._import_indicator_data(df, df_cols, inst_col, import_record=import_record)
 
             import_record.processed_records = success_count
             import_record.status = 'COMPLETED'
@@ -231,7 +252,7 @@ class FileUploadView(views.APIView):
         xff = request.META.get('HTTP_X_FORWARDED_FOR')
         return xff.split(',')[0] if xff else request.META.get('REMOTE_ADDR')
 
-    def _import_indicator_data(self, df, df_cols, inst_col):
+    def _import_indicator_data(self, df, df_cols, inst_col, import_record=None):
         from indicators.models import Indicator, IndicatorValue
         from institutions.models import Institution
 
@@ -286,7 +307,7 @@ class FileUploadView(views.APIView):
                     },
                 )
 
-                year = _int(row, year_col, 2024)
+                year = _int(row, year_col, import_record.data_year if import_record and import_record.data_year else 2024)
 
                 students = _float(row, students_col)
                 if students is not None:
@@ -318,6 +339,7 @@ class FileUploadView(views.APIView):
         code_col = df_cols.get('code')
         type_col = df_cols.get('type') or df_cols.get('institution_type')
         prov_col = df_cols.get('province') or df_cols.get('region')
+        dist_col = df_cols.get('district')
         reg_col = df_cols.get('registration_number') or df_cols.get('reg_number')
         email_col = df_cols.get('email')
         website_col = df_cols.get('website')
@@ -341,6 +363,7 @@ class FileUploadView(views.APIView):
                         'name': name,
                         'type': inst_type if inst_type in dict(Institution.TYPES) else 'PUBLIC',
                         'province': province if province in dict(Institution.PROVINCES) else 'LUSAKA',
+                        'district': _str(row, dist_col),
                         'registration_number': reg_num,
                         'email': _str(row, email_col),
                         'website': _str(row, website_col),
@@ -417,7 +440,7 @@ class FileUploadView(views.APIView):
                 last_name  = _str(row, lname_col) or ''
                 gender_raw = (_str(row, gender_col) or 'M').upper()
                 gender     = gender_raw[0] if gender_raw and gender_raw[0] in ('M', 'F', 'O') else 'M'
-                year_of_entry  = _int(row, year_col, 2024)
+                year_of_entry  = _int(row, year_col, import_record.data_year if import_record and import_record.data_year else 2024)
                 student_status = (_str(row, status_col) or 'ENROLLED').upper()
 
                 # ── Resolve institution ────────────────────────────────────
@@ -598,7 +621,7 @@ class FileUploadView(views.APIView):
                 print(f"[programmes] row {index}: {e}")
         return success_count
 
-    def _import_enrollments(self, df, df_cols):
+    def _import_enrollments(self, df, df_cols, import_record=None):
         from academic.models import Enrollment
         from institutions.models import Institution
 
@@ -628,7 +651,7 @@ class FileUploadView(views.APIView):
                     print(f"[enrollments] row {index}: institution '{inst_name}' not found")
                     continue
 
-                year = _int(row, year_col, 2024)
+                year = _int(row, year_col, import_record.data_year if import_record and import_record.data_year else 2024)
                 total = _int(row, total_col, 0)
                 male = _int(row, male_col, 0)
                 female = _int(row, female_col, 0)
@@ -648,6 +671,131 @@ class FileUploadView(views.APIView):
                 success_count += 1
             except Exception as e:
                 print(f"[enrollments] row {index}: {e}")
+        return success_count
+
+    # Maps common rank string aliases to AcademicStaff.RANK_CHOICES keys
+    _RANK_ALIASES = {
+        'PROFESSOR': 'PROFESSOR', 'PROF': 'PROFESSOR',
+        'ASSOCIATE PROFESSOR': 'ASSOCIATE_PROFESSOR', 'ASSOC PROF': 'ASSOCIATE_PROFESSOR',
+        'ASSOCIATE_PROFESSOR': 'ASSOCIATE_PROFESSOR',
+        'ASSISTANT PROFESSOR': 'ASSISTANT_PROFESSOR', 'ASST PROF': 'ASSISTANT_PROFESSOR',
+        'ASSISTANT_PROFESSOR': 'ASSISTANT_PROFESSOR',
+        'SENIOR LECTURER': 'SENIOR_LECTURER', 'SR LECTURER': 'SENIOR_LECTURER',
+        'SENIOR_LECTURER': 'SENIOR_LECTURER',
+        'LECTURER': 'LECTURER',
+        'JUNIOR LECTURER': 'JUNIOR_LECTURER', 'JR LECTURER': 'JUNIOR_LECTURER',
+        'JUNIOR_LECTURER': 'JUNIOR_LECTURER',
+        'TUTORIAL FELLOW': 'TUTORIAL_FELLOW', 'TUTORIAL_FELLOW': 'TUTORIAL_FELLOW',
+        'TEACHING ASSISTANT': 'TEACHING_ASSISTANT', 'TA': 'TEACHING_ASSISTANT',
+        'TEACHING_ASSISTANT': 'TEACHING_ASSISTANT',
+        'RESEARCHER': 'RESEARCHER',
+    }
+
+    _EMPLOYMENT_ALIASES = {
+        'FULL TIME': 'FULL_TIME', 'FULL-TIME': 'FULL_TIME', 'FULL_TIME': 'FULL_TIME',
+        'PART TIME': 'PART_TIME', 'PART-TIME': 'PART_TIME', 'PART_TIME': 'PART_TIME',
+        'CONTRACT': 'CONTRACT', 'ADJUNCT': 'ADJUNCT', 'VISITING': 'VISITING',
+    }
+
+    _QUALIFICATION_ALIASES = {
+        'PHD': 'PHD', 'DOCTORATE': 'PHD', 'DOCTOR OF PHILOSOPHY': 'PHD',
+        'MASTERS': 'MASTERS', "MASTER'S": 'MASTERS', 'MASTERS DEGREE': 'MASTERS',
+        'MSC': 'MASTERS', 'MBA': 'MASTERS', 'MA': 'MASTERS',
+        'POSTGRAD_DIPLOMA': 'POSTGRAD_DIPLOMA', 'POSTGRADUATE DIPLOMA': 'POSTGRAD_DIPLOMA',
+        'PGDIP': 'POSTGRAD_DIPLOMA', 'PGD': 'POSTGRAD_DIPLOMA',
+        'BACHELOR': 'BACHELOR', "BACHELOR'S": 'BACHELOR', 'BACHELORS': 'BACHELOR',
+        'DEGREE': 'BACHELOR', 'BSC': 'BACHELOR', 'BA': 'BACHELOR',
+    }
+
+    def _import_staff(self, df, df_cols, import_record=None):
+        from academic.models import AcademicStaff
+
+        sid_col    = df_cols.get('staff_id')   or df_cols.get('id')
+        fname_col  = df_cols.get('first_name') or df_cols.get('firstname')
+        lname_col  = df_cols.get('last_name')  or df_cols.get('lastname') or df_cols.get('surname')
+        inst_col   = df_cols.get('institution') or df_cols.get('institution_name')
+        dept_col   = df_cols.get('department')  or df_cols.get('dept')
+        rank_col   = df_cols.get('rank')        or df_cols.get('position') or df_cols.get('title')
+        emp_col    = df_cols.get('employment_type') or df_cols.get('employment')
+        status_col = df_cols.get('status')
+        year_col   = (df_cols.get('year_appointed') or df_cols.get('year_of_appointment')
+                      or df_cols.get('year'))
+        qual_col   = (df_cols.get('highest_qualification') or df_cols.get('qualification')
+                      or df_cols.get('education'))
+        spec_col   = df_cols.get('specialisation') or df_cols.get('specialization')
+        field_col  = df_cols.get('academic_field') or df_cols.get('field')
+        gender_col = df_cols.get('gender')
+        email_col  = df_cols.get('email')
+        phone_col  = df_cols.get('phone')
+
+        def _norm(s): return s.strip().upper() if s else ''
+
+        success_count = 0
+        for index, row in df.iterrows():
+            try:
+                staff_id = _str(row, sid_col) or f"STAFF-{index:06d}"
+                first_name = _str(row, fname_col) or ''
+                last_name  = _str(row, lname_col) or ''
+
+                # institution
+                inst_name = _str(row, inst_col)
+                if not inst_name:
+                    print(f"[staff] row {index}: missing institution, skipping")
+                    continue
+                institution = Institution.objects.filter(name__icontains=inst_name).first()
+                if not institution:
+                    print(f"[staff] row {index}: institution '{inst_name}' not found, skipping")
+                    continue
+
+                # gender
+                gender_raw = _norm(_str(row, gender_col) or 'M')
+                gender = gender_raw[0] if gender_raw and gender_raw[0] in ('M', 'F', 'O') else 'M'
+
+                # rank
+                rank_raw  = _norm(_str(row, rank_col) or '')
+                rank      = self._RANK_ALIASES.get(rank_raw, 'LECTURER')
+
+                # employment type
+                emp_raw   = _norm(_str(row, emp_col) or 'FULL_TIME')
+                emp_type  = self._EMPLOYMENT_ALIASES.get(emp_raw, 'FULL_TIME')
+
+                # status
+                status_raw = _norm(_str(row, status_col) or 'ACTIVE')
+                valid_statuses = {'ACTIVE', 'INACTIVE', 'ON_LEAVE', 'RETIRED'}
+                staff_status = status_raw if status_raw in valid_statuses else 'ACTIVE'
+
+                # highest qualification
+                qual_raw = _norm(_str(row, qual_col) or '')
+                qual     = self._QUALIFICATION_ALIASES.get(qual_raw) if qual_raw else None
+
+                # year appointed
+                year_appointed = _int(
+                    row, year_col,
+                    import_record.data_year if import_record and import_record.data_year else None
+                )
+
+                AcademicStaff.objects.update_or_create(
+                    staff_id=staff_id,
+                    defaults={
+                        'first_name':            first_name,
+                        'last_name':             last_name,
+                        'gender':                gender,
+                        'institution':           institution,
+                        'department':            _str(row, dept_col),
+                        'rank':                  rank,
+                        'employment_type':       emp_type,
+                        'status':                staff_status,
+                        'year_appointed':        year_appointed,
+                        'highest_qualification': qual,
+                        'specialisation':        _str(row, spec_col),
+                        'academic_field':        _str(row, field_col),
+                        'email':                 _str(row, email_col),
+                        'phone':                 _str(row, phone_col),
+                    },
+                )
+                success_count += 1
+            except Exception as e:
+                print(f"[staff] row {index}: {e}")
         return success_count
 
 

@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const [data, setData]           = React.useState<any>(null);
   const [breakdown, setBreakdown] = React.useState<any>(null);
   const [loading, setLoading]     = React.useState(true);
-  const [year, setYear]           = React.useState(2024);
+  const [year, setYear]           = React.useState(new Date().getFullYear());
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
@@ -73,7 +73,7 @@ export default function DashboardPage() {
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}
             className="px-4 py-2 bg-white border rounded-xl text-sm font-bold shadow-sm cursor-pointer"
             style={{ borderColor: 'var(--border)', color: 'var(--colour-primary)' }}>
-            {[2020,2021,2022,2023,2024].map((y) => <option key={y} value={y}>{y}</option>)}
+            {Array.from({ length: new Date().getFullYear() - 2020 + 1 }, (_, i) => 2020 + i).map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           <button onClick={loadData}
             className="flex items-center gap-2 px-4 py-2 bg-white border rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 transition-colors"
@@ -106,12 +106,12 @@ export default function DashboardPage() {
             <StatCard title="Currently Enrolled"
               value={(breakdown?.enrolled_count ?? 0).toLocaleString()}
               icon={UserCheck} accent="orange" trendText="active students" />
+            <StatCard title="Graduated"
+              value={Number(data.stats.graduated_count ?? breakdown?.by_status?.find((s: any) => s.code === 'GRADUATED')?.count ?? 0).toLocaleString()}
+              icon={GraduationCap} accent="amber" trendText="total graduates" />
             <StatCard title="Registered HEIs"
               value={data.stats.registered_heis.toString()}
-              icon={School} trend={2} isPositive trendText="new institutions" accent="amber" />
-            <StatCard title="Compliance Score"
-              value={`${data.stats.compliance_score}%`}
-              icon={ShieldCheck} trend={1.5} isPositive={false} trendText="audit delta" accent="teal" />
+              icon={School} trendText="active institutions" accent="teal" />
           </motion.div>
 
           {/* Row 1: Enrollment Trend + Regional Share */}

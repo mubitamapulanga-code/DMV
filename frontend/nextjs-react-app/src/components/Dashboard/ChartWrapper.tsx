@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface ChartWrapperProps {
   children: React.ReactNode;
@@ -9,36 +9,57 @@ interface ChartWrapperProps {
 }
 
 /**
- * Defers chart rendering until the client has mounted and the container
- * has real dimensions. Prevents the Recharts "width(-1) height(-1)" warning
- * that fires during SSR / hydration when ResponsiveContainer can't measure yet.
+ * Defers chart rendering until the container has real, positive dimensions.
+ * Uses a ResizeObserver to detect when the wrapper div has been laid out,
+ * preventing the Recharts "width(-1) height(-1)" warning that fires during
+ * SSR / hydration or when the container hasn't been painted yet.
  */
 export default function ChartWrapper({
   children,
   height = 300,
   className = '',
 }: ChartWrapperProps) {
-  const [mounted, setMounted] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const el = containerRef.current;
+    if (!el) return;
+
+    // If the element already has a positive width, render immediately.
+    if (el.getBoundingClientRect().width > 0) {
+      setReady(true);
+      return;
+    }
+
+    // Otherwise wait for the first resize entry with a positive width.
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setReady(true);
+          observer.disconnect();
+          break;
+        }
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
-  if (!mounted) {
-    // Placeholder keeps layout stable while JS hydrates
-    return (
-      <div
-        style={{ height }}
-        className={`w-full flex items-center justify-center ${className}`}
-      >
-        <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div style={{ height, minHeight: height }} className={`w-full ${className}`}>
-      {children}
+    <div
+      ref={containerRef}
+      style={{ height, minHeight: height }}
+      className={`w-full ${className}`}
+    >
+      {ready ? (
+        children
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+        </div>
+      )}
     </div>
   );
 }

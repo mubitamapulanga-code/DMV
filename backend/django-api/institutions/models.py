@@ -26,6 +26,7 @@ class Institution(models.Model):
     code = models.CharField(max_length=50, unique=True)
     type = models.CharField(max_length=20, choices=TYPES)
     province = models.CharField(max_length=50, choices=PROVINCES)
+    district = models.CharField(max_length=100, null=True, blank=True)
     registration_number = models.CharField(max_length=100, unique=True)
     address = models.TextField(null=True, blank=True)
     website = models.URLField(null=True, blank=True)

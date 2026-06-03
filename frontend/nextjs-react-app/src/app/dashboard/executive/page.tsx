@@ -8,7 +8,7 @@ import { TrendingUp, Building2, Users, GraduationCap, ArrowUpRight, ArrowDownRig
 export default function ExecutiveDashboardPage() {
   const [data, setData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
-  const [year, setYear] = React.useState(2024);
+  const [year, setYear] = React.useState(new Date().getFullYear());
 
   React.useEffect(() => {
     api.get(`/analytics/executive/?year=${year}`)
@@ -29,7 +29,7 @@ export default function ExecutiveDashboardPage() {
           onChange={(e) => setYear(Number(e.target.value))}
           className="px-4 py-2 bg-white border border-border rounded-xl text-sm font-bold"
         >
-          {[2020, 2021, 2022, 2023, 2024].map(y => <option key={y} value={y}>{y}</option>)}
+          {Array.from({ length: new Date().getFullYear() - 2020 + 1 }, (_, i) => 2020 + i).map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </header>
 
